@@ -23,8 +23,8 @@
  *   both pass the check with the last ticket.
  *
  * HOW TO RUN
- *   dotnet run            - unsynchronized mode (output is often wrong)
- *   dotnet run -- sync    - synchronized mode (output is always correct)
+ *   dotnet run            - unsynchronized mode
+ *   dotnet run -- sync    - synchronized mode
  */
 using System;
 using System.Globalization;
