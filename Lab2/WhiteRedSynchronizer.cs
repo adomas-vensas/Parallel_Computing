@@ -73,7 +73,8 @@ public sealed class WhiteRedSynchronizer
 
     private static bool Suspend(object monitor)
     {
-        Console.WriteLine($"Suspend: {Thread.CurrentThread.Name}");
+        var prefix = $"[{Thread.CurrentThread.Name}]:";
+        Console.WriteLine($"{prefix,-10} suspend");
         return Monitor.Wait(monitor);
     }
 
