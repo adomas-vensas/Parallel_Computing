@@ -1,9 +1,0 @@
-Each thread prints these lines in order:
-
-started: the thread began running.
-before calling Enter: it asks to get in.
-suspend: it has to wait (only if the other color is active).
-called Enter successfully: it is active.
-before calling Leave: it is about to leave.
-called Leave successfully: it is out.
-Steps 2–6 repeat 5 times, then completed: the thread is done.
