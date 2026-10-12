@@ -6,10 +6,20 @@
  *   "White - Red" synchronizer. At the same time only threads of one color
  *   may be active. Several White and Red threads visit the shared area many times.
  *
+ *
  * WHICH OUTPUT IS CORRECT?
  *   A thread is active between "called Enter successfully" and "before calling Leave".
  *   White and Red threads are never active together (Active never shows both > 0, violations == 0),
  *   and several threads of the same color are active together (max active > 1).
+ *
+ * LOG LINES
+ *   Each thread prints these lines in order:
+ *     1. started                   - the thread began running.
+ *     2. before calling Enter      - it asks to get in.
+ *     3. suspend                   - it has to wait (only if the other color is active).
+ *     4. called Enter successfully - it is active.
+ *     5. before calling Leave      - it is about to leave.
+ *     6. called Leave successfully - it is out.
  *
  * HOW TO RUN
  *   dotnet run
