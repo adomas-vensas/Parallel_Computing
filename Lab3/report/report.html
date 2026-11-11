@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lab 3 - Adomas Vensas</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  body { font-family: "Segoe UI", Arial, sans-serif; font-size: 11pt; line-height: 1.45; max-width: 180mm; margin: 0 auto; }
+  h1 { font-size: 18pt; margin-bottom: 2px; }
+  h2 { font-size: 13pt; margin-top: 18px; }
+  table { border-collapse: collapse; margin: 6px 0 10px; font-size: 10pt; }
+  th, td { border: 1px solid #999; padding: 3px 8px; text-align: right; }
+  th { background: #eee; }
+  figure { margin: 8px 0 14px; page-break-inside: avoid; }
+  figcaption { font-size: 10pt; text-align: center; }
+  ul { margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<h1>Lab 3: Parallel Sieve of Eratosthenes</h1>
+<p>Adomas Vensas, student ID 2525104. Problem 4. Written in C# (.NET 8) with threads.</p>
+
+<h2>1. Problem</h2>
+<p>
+  Find all prime numbers up to N with the Sieve of Eratosthenes: take 2 and cross out all its multiples, then take the next
+  number that is not crossed out and do the same, and so on. The numbers that are left are primes. My program counts them.
+</p>
+
+<h2>2. How I parallelized it</h2>
+<ul>
+  <li><b>Dividing the work:</b> first one thread finds the small primes up to &radic;N (this is very fast). Then the numbers up to N
+    are split into equal parts (segments). Each part can be sieved on its own using the small primes.</li>
+  <li><b>Giving parts to threads:</b> there is a shared counter that shows which part is next. When a thread is free, it takes the next
+    part and increases the counter. So faster threads just take more parts.</li>
+  <li><b>Synchronization:</b> the counter and the total are changed with atomic <code>Interlocked</code> operations. The main thread waits for all threads with <code>Join</code>.</li>
+</ul>
+
+<h2>3. Experiment</h2>
+<p>
+  I ran the program on the MIF cluster on one node with 2 &times; Intel Xeon Gold 6252 processors, using 24 cores.
+  Each test was run 3 times and the best time was taken. Speedup = time with 1 thread / time with p threads.
+</p>
+
+<p><b>Test 1.</b> Diferent N (part size 262,144):</p>
+<div id="table1"></div>
+<figure><div id="fig1"></div><figcaption>Figure 1. Speedup depending on number of threads. Dashed line = ideal speedup.</figcaption></figure>
+
+<p><b>Test 2.</b> Different part (segment) size, N = 10<sup>9</sup>:</p>
+<div id="table2"></div>
+<figure><div id="fig2"></div><figcaption>Figure 2. Time depending on part size, N = 10<sup>9</sup>.</figcaption></figure>
+
+<h2>4. Conclusions</h2>
+<ul>
+  <li><b>Maximum speedup:</b> 15.6 times with 24 threads (N = 10<sup>9</sup>): from 1439 ms to 92 ms.</li>
+  <li><b>How good it is:</b> almost linear up to 8 threads, very good with 16 threads (13 times), good with 24 threads.
+    For small N (10<sup>7</sup>) the speedup is small (3.7 times), because the program finishes in a few milliseconds.</li>
+  <li><b>Why it is not perfect:</b> creating threads takes some time, at the end some threads wait for the last parts,
+    all cores share the same memory, and the procesor runs a bit slower when all cores are busy.</li>
+  <li><b>Is it scalable:</b> yes, for big N. The bigger N is, the better the speedup (3.7, 9.4 and 15.6 with 24 threads).
+    Part size also matters: 64K&ndash;1M works best. Too small parts add extra work, too big parts do not fit in the cache
+    and there are too few of them to share between threads.</li>
+</ul>
+
+<script>
+const data = {
+  size: { // N -> times for 1, 2, 4, 8, 16, 24 threads (ms)
+    1e7: [14.789, 7.766, 6.194, 4.520, 4.533, 4.042],
+    1e8: [142.243, 70.771, 37.920, 21.480, 16.448, 15.212],
+    1e9: [1439.345, 722.820, 385.771, 200.366, 110.970, 92.412]
+  },
+  grain: { // segment -> times for 1, 2, 4, 8, 16, 24 threads (ms), N = 1e9
+    4096: [6696.533, 3361.323, 1779.545, 916.236, 484.262, 390.041],
+    16384: [2530.339, 1275.192, 679.057, 349.315, 221.014, 142.290],
+    65536: [1632.084, 819.463, 439.339, 226.813, 143.949, 109.415],
+    262144: [1438.278, 733.159, 396.831, 200.870, 113.865, 95.008],
+    1048576: [1634.776, 815.696, 429.258, 228.797, 130.232, 100.120],
+    4194304: [2274.304, 1169.957, 727.634, 411.491, 361.450, 374.308],
+    16777216: [2692.924, 2613.671, 1389.265, 1027.826, 1123.827, 1054.606]
+  }
+};
+const THREADS = [1, 2, 4, 8, 16, 24];
+const SIZES = [1e7, 1e8, 1e9];
+const SEGS = Object.keys(data.grain).map(Number);
+const COLORS = ['#1f77b4', '#d62728', '#2ca02c', '#ff7f0e', '#9467bd', '#8c564b'];
+const nHtml = n => `10<sup>${Math.log10(n)}</sup>`;
+const nText = n => '10^' + Math.log10(n);
+const segText = s => s >= 1048576 ? s / 1048576 + 'M' : s / 1024 + 'K';
+
+function chart(id, o) {
+  const W = 640, H = 330, m = { l: 60, r: 130, t: 12, b: 46 };
+  const pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const fx = o.xLog ? Math.log2 : v => v, fy = o.yLog ? Math.log10 : v => v;
+  const X = v => m.l + (fx(v) - fx(o.x[0])) / (fx(o.x[1]) - fx(o.x[0])) * pw;
+  const Y = v => m.t + ph - (fy(v) - fy(o.y[0])) / (fy(o.y[1]) - fy(o.y[0])) * ph;
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" font-family="Segoe UI, Arial" font-size="12">`;
+  o.xTicks.forEach(t => s += `<line x1="${X(t)}" x2="${X(t)}" y1="${m.t}" y2="${m.t + ph}" stroke="#e5e5e5"/><text x="${X(t)}" y="${m.t + ph + 16}" text-anchor="middle">${o.xFmt ? o.xFmt(t) : t}</text>`);
+  o.yTicks.forEach(t => s += `<line x1="${m.l}" x2="${m.l + pw}" y1="${Y(t)}" y2="${Y(t)}" stroke="#e5e5e5"/><text x="${m.l - 6}" y="${Y(t) + 4}" text-anchor="end">${t}</text>`);
+  s += `<rect x="${m.l}" y="${m.t}" width="${pw}" height="${ph}" fill="none" stroke="#333"/>`;
+  s += `<text x="${m.l + pw / 2}" y="${H - 8}" text-anchor="middle">${o.xLabel}</text>`;
+  s += `<text transform="translate(15 ${m.t + ph / 2}) rotate(-90)" text-anchor="middle">${o.yLabel}</text>`;
+  o.series.forEach((se, i) => {
+    const c = se.color || COLORS[i], dash = se.dashed ? 'stroke-dasharray="6 4"' : '';
+    s += `<polyline points="${se.points.map(([x, y]) => X(x) + ',' + Y(y)).join(' ')}" fill="none" stroke="${c}" stroke-width="2" ${dash}/>`;
+    if (!se.dashed) se.points.forEach(([x, y]) => s += `<circle cx="${X(x)}" cy="${Y(y)}" r="3.5" fill="${c}"/>`);
+    const ly = m.t + 12 + i * 20;
+    s += `<line x1="${m.l + pw + 10}" x2="${m.l + pw + 32}" y1="${ly}" y2="${ly}" stroke="${c}" stroke-width="2" ${dash}/><text x="${m.l + pw + 38}" y="${ly + 4}">${se.name}</text>`;
+  });
+  document.getElementById(id).innerHTML = s + '</svg>';
+}
+
+chart('fig1', {
+  xLabel: 'Threads', yLabel: 'Speedup', x: [0, 25], y: [0, 25], xTicks: THREADS, yTicks: [0, 4, 8, 12, 16, 20, 24],
+  series: [{ name: 'ideal', color: '#555', dashed: true, points: [[1, 1], [24, 24]] },
+    ...SIZES.map(n => ({ name: 'N = ' + nText(n), points: THREADS.map((t, i) => [t, data.size[n][0] / data.size[n][i]]) }))]
+});
+
+chart('fig2', {
+  xLabel: 'Part size', yLabel: 'Time, ms', xLog: true, yLog: true, x: [3000, 22000000], y: [50, 10000],
+  xTicks: SEGS, xFmt: segText, yTicks: [50, 100, 200, 500, 1000, 2000, 5000, 10000],
+  series: THREADS.map((t, i) => ({ name: t + (t === 1 ? ' thread' : ' threads'), points: SEGS.map(s => [s, data.grain[s][i]]) }))
+});
+
+let t1 = '<table><tr><th rowspan="2">Threads</th>' + SIZES.map(n => `<th colspan="2">N = ${nHtml(n)}</th>`).join('') + '</tr><tr>' +
+  SIZES.map(() => '<th>Time, ms</th><th>Speedup</th>').join('') + '</tr>';
+THREADS.forEach((t, i) => {
+  t1 += `<tr><td>${t}</td>` + SIZES.map(n => `<td>${data.size[n][i].toFixed(1)}</td><td>${(data.size[n][0] / data.size[n][i]).toFixed(2)}</td>`).join('') + '</tr>';
+});
+document.getElementById('table1').innerHTML = t1 + '</table>';
+
+let t2 = '<table><tr><th>Part size</th><th>1 thread, ms</th><th>24 threads, ms</th><th>Speedup</th></tr>';
+SEGS.forEach(s => {
+  const g = data.grain[s];
+  t2 += `<tr><td>${segText(s)}</td><td>${g[0].toFixed(1)}</td><td>${g[5].toFixed(1)}</td><td>${(g[0] / g[5]).toFixed(2)}</td></tr>`;
+});
+document.getElementById('table2').innerHTML = t2 + '</table>';
+</script>
+</body>
+</html>
