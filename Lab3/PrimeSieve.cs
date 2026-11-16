@@ -184,9 +184,12 @@ public static class PrimeSieve
                 }
             }
 
-            // Convert the number to an index inside the segment, then step over odd multiples:
-            // consecutive odd multiples differ by 2p, i.e. by p in index space.
-            for (var i = (start - 1) / 2 - low; i < length; i += p)
+            // Only odd numbers are stored, so number x sits at position (x - 1) / 2 (e.g. 9 is at position 4).
+            var index = (start - 1) / 2;
+            // This thread's array holds only the current segment, so subtract where the segment starts.
+            var localIndex = index - low;
+            // Cross out every odd multiple of p. In the odd-only array they are exactly p places apart.
+            for (var i = localIndex; i < length; i += p)
             {
                 composite[i] = true;
             }
