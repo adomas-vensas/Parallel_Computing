@@ -105,7 +105,7 @@ public static class Program
         // Segment (grain) sizes for experiment 2 (comma separated).
         var segmentSizes = args.Length > 4
             ? args[4].Split(',').Select(int.Parse).ToArray()
-            : [1 << 12, 1 << 14, 1 << 16, 1 << 18, 1 << 20, 1 << 22, 1 << 24];
+            : [4_096, 16_384, 65_536, 262_144, 1_048_576, 4_194_304, 16_777_216];
         // Check every combination of parameters before running anything.
         foreach (var size in sizes)
         {
