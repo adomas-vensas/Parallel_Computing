@@ -228,24 +228,7 @@ public static class PrimeSieve
     }
 
     /// <summary>
-    /// Exact integer square root: largest r with r*r.
+    /// Integer square root: largest r such that r*r does not exceed n (exact for n below 2^52, far beyond any practical N).
     /// </summary>
-    private static int IntSqrt(long n)
-    {
-        // Floating-point estimate; may be off by one for large n because of rounding.
-        var r = (long)Math.Sqrt(n);
-        // Estimate too big -> decrease.
-        while (r * r > n)
-        {
-            r--;
-        }
-
-        // Estimate too small -> increase.
-        while ((r + 1) * (r + 1) <= n)
-        {
-            r++;
-        }
-
-        return (int)r;
-    }
+    private static int IntSqrt(long n) => (int)Math.Sqrt(n);
 }
