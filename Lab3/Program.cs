@@ -14,15 +14,14 @@
  *     are the segment counter and one Interlocked.Add per thread at the end. Join waits for all threads.
  *
  * HOW TO RUN
- *   dotnet run -c Release -- debug [threads] [N] [segmentSize]
- *       Slowed down (sleep) run that prints a protocol of what every worker thread does.
- *       e.g. dotnet run -c Release -- debug 3 200 16
- *   dotnet run -c Release -- fast [threads] [N] [segmentSize]
- *       No artificial delays, prints the number of primes and the execution time.
- *       e.g. dotnet run -c Release -- fast 8 1000000000
- *   dotnet run -c Release -- bench [maxThreads] [repeats] [N1,N2,...] [segment1,segment2,...]
+ *   dotnet run -c Release -- debug
+ *       Slowed down (sleep) run that prints a protocol of what every worker thread does
+ *       (N = 200, segment = 16, all cores).
+ *   dotnet run -c Release -- fast
+ *       No artificial delays, prints the number of primes and the execution time
+ *       (N = 1,000,000,000, default segment, all cores).
+ *   dotnet run -c Release -- bench
  *       Speedup experiment: time vs threads for each N, and time vs segment (grain) size for the largest N.
- *       e.g. dotnet run -c Release -- bench 24 3 10000000,100000000,1000000000
  *       Results are printed and written to results.csv (for graphs).
  *
  *   On the MIF cluster reserve one node with enough cores first, e.g.: srun --pty -N1 -c24 $SHELL
@@ -36,12 +35,8 @@ using System.Linq;
 
 public static class Program
 {
-    // Help text printed for an unknown mode or invalid arguments.
-    private const string Usage =
-        "Usage:\n" +
-        "  debug [threads] [N] [segmentSize]\n" +
-        "  fast  [threads] [N] [segmentSize]\n" +
-        "  bench [maxThreads] [repeats] [N1,N2,...] [segment1,segment2,...]";
+    // Help text printed for an unknown mode.
+    private const string Usage = "Usage: dotnet run -c Release -- debug | fast | bench";
 
     public static void Main(string[] args)
     {
@@ -51,15 +46,15 @@ public static class Program
         {
             // Slowed down run with a protocol of every thread's actions.
             case "debug":
-                RunOnce(args, debug: true);
+                RunOnce(debug: true);
                 break;
             // Single run at full speed, prints only the result and time.
             case "fast":
-                RunOnce(args, debug: false);
+                RunOnce(debug: false);
                 break;
             // Full speedup / grain size experiment.
             case "bench":
-                Benchmark(args);
+                Benchmark();
                 break;
             // Unknown mode: show how to use the program.
             default:
@@ -68,16 +63,14 @@ public static class Program
         }
     }
 
-    private static void RunOnce(string[] args, bool debug)
+    private static void RunOnce(bool debug)
     {
-        // Number of worker threads (default: all available cores).
-        var threads = args.Length > 1 ? int.Parse(args[1]) : Environment.ProcessorCount;
-        // Workload: find primes <= N (small default in debug mode so the protocol stays readable).
-        var n = args.Length > 2 ? long.Parse(args[2]) : debug ? 200 : 1_000_000_000;
+        // Number of worker threads: all available cores.
+        var threads = Environment.ProcessorCount;
+        // Workload: find primes <= N (small in debug mode so the protocol stays readable).
+        long n = debug ? 200 : 1_000_000_000;
         // Grain size: how many odd numbers one segment (unit of work) contains.
-        var segmentSize = args.Length > 3 ? int.Parse(args[3]) : debug ? 16 : PrimeSieve.DefaultSegmentSize;
-        // Reject impossible values before starting.
-        Validate(threads, n, segmentSize);
+        var segmentSize = debug ? 16 : PrimeSieve.DefaultSegmentSize;
 
         // Print the run parameters.
         Console.WriteLine($"=== Sieve of Eratosthenes, {(debug ? "debug" : "fast")} mode: N = {n:N0}, threads = {threads}, segment = {segmentSize:N0} ===");
@@ -92,28 +85,16 @@ public static class Program
         Console.WriteLine($"Execution time: {stopwatch.Elapsed.TotalMilliseconds:F1} ms");
     }
 
-    private static void Benchmark(string[] args)
+    private static void Benchmark()
     {
-        // Largest thread count to test (default: all available cores).
-        var maxThreads = args.Length > 1 ? int.Parse(args[1]) : Environment.ProcessorCount;
+        // Largest thread count to test: all available cores.
+        var maxThreads = Environment.ProcessorCount;
         // Each measurement is repeated this many times and the best time is kept (reduces noise).
-        var repeats = args.Length > 2 ? int.Parse(args[2]) : 3;
-        // Problem sizes N for experiment 1 (comma separated).
-        var sizes = args.Length > 3
-            ? args[3].Split(',').Select(long.Parse).ToArray()
-            : [10_000_000L, 100_000_000L, 1_000_000_000L];
-        // Segment (grain) sizes for experiment 2 (comma separated).
-        var segmentSizes = args.Length > 4
-            ? args[4].Split(',').Select(int.Parse).ToArray()
-            : [4_096, 16_384, 65_536, 262_144, 1_048_576, 4_194_304, 16_777_216];
-        // Check every combination of parameters before running anything.
-        foreach (var size in sizes)
-        {
-            foreach (var segment in segmentSizes)
-            {
-                Validate(maxThreads, size, segment);
-            }
-        }
+        const int repeats = 3;
+        // Problem sizes N for experiment 1.
+        long[] sizes = [10_000_000, 100_000_000, 1_000_000_000];
+        // Segment (grain) sizes for experiment 2.
+        int[] segmentSizes = [4_096, 16_384, 65_536, 262_144, 1_048_576, 4_194_304, 16_777_216];
 
         // Thread counts to test: 1, 2, 4, 8, ... maxThreads.
         var threadCounts = ThreadCounts(maxThreads);
@@ -225,15 +206,6 @@ public static class Program
         }
 
         return (best, primes);
-    }
-
-    private static void Validate(int threads, long n, int segmentSize)
-    {
-        // Need at least one thread, a non-negative N and a non-empty segment.
-        if (threads < 1 || n < 0 || segmentSize < 1)
-        {
-            throw new ArgumentException($"threads and segment size must be >= 1, N >= 0.\n{Usage}");
-        }
     }
 
     // 1, 2, 4, 8, ... up to maxThreads, always including maxThreads itself.
