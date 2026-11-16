@@ -93,7 +93,7 @@ public static class Program
         const int repeats = 3;
         // Problem sizes N for experiment 1.
         long[] sizes = [10_000_000, 100_000_000, 1_000_000_000];
-        // Segment (grain) sizes for experiment 2.
+        // Segment (grain) sizes for experiment 2. Range goes from 4 KB to 16 MB
         int[] segmentSizes = [4_096, 16_384, 65_536, 262_144, 1_048_576, 4_194_304, 16_777_216];
 
         // Thread counts to test: 1, 2, 4, 8, ... maxThreads.
