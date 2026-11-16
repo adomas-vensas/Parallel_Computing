@@ -228,7 +228,7 @@ public static class PrimeSieve
     }
 
     /// <summary>
-    /// Exact integer square root: largest r with r*r &lt;= n.
+    /// Exact integer square root: largest r with r*r.
     /// </summary>
     private static int IntSqrt(long n)
     {
