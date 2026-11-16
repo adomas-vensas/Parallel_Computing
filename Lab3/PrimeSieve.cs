@@ -11,7 +11,7 @@ public static class PrimeSieve
     // Default number of odd numbers per segment (262,144 bytes as bool[] - fits in the CPU L2 cache).
     public const int DefaultSegmentSize = 262_144;
     // Artificial pause after each segment in debug mode, so the thread interleaving is visible.
-    private const int DebugDelayMs = 300;
+    private const int DebugDelayMs = 1000;
     // In debug mode print at most this many primes per segment.
     private const int DebugMaxPrimesShown = 15;
 
