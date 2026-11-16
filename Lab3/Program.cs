@@ -3,9 +3,7 @@
  * Assignment: 3, problem 4 (student id 2525104 -> options 4, 5, 6)
  *
  * DESCRIPTION
- *   Generation of prime numbers by the Sieve of Eratosthenes, parallelized as a segmented sieve
- *   on a shared memory multithreaded system. The program measures speedup and efficiency
- *   for several problem sizes and thread counts.
+ *   Generation of prime numbers by the Sieve of Eratosthenes.
  *
  * PARALLELIZATION
  *   - Base primes up to sqrt(N) are computed sequentially (small part of the work).
